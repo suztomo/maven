@@ -49,8 +49,8 @@ import org.eclipse.aether.util.repository.DefaultAuthenticationSelector;
 import org.eclipse.aether.util.repository.DefaultMirrorSelector;
 import org.eclipse.aether.util.repository.DefaultProxySelector;
 import org.eclipse.aether.util.repository.SimpleResolutionErrorPolicy;
-import org.eclipse.sisu.Nullable;
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import java.io.IOException;

@@ -19,12 +19,12 @@ package org.apache.maven.extension.internal;
  * under the License.
  */
 
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Singleton;
 
 import org.codehaus.plexus.PlexusContainer;
-import org.eclipse.sisu.Nullable;
 
 /**
  * CoreExportsProvider
