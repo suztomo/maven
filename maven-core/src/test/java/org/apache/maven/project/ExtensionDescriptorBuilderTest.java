@@ -19,9 +19,13 @@ package org.apache.maven.project;
  * under the License.
  */
 
+import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.is;
+import static org.junit.Assert.assertThat;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
-import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 import junit.framework.TestCase;
@@ -57,14 +61,7 @@ public class ExtensionDescriptorBuilderTest
 
     private InputStream toStream( String xml )
     {
-        try
-        {
-            return new ByteArrayInputStream( xml.getBytes( "UTF-8" ) );
-        }
-        catch ( UnsupportedEncodingException e )
-        {
-            throw new IllegalStateException( e );
-        }
+        return new ByteArrayInputStream( xml.getBytes( StandardCharsets.UTF_8 ) );
     }
 
     public void testEmptyDescriptor()
@@ -76,9 +73,9 @@ public class ExtensionDescriptorBuilderTest
 
         assertNotNull( ed );
         assertNotNull( ed.getExportedPackages() );
-        assertTrue( ed.getExportedPackages().isEmpty() );
+        assertThat( ed.getExportedPackages(), is( empty() ) );
         assertNotNull( ed.getExportedArtifacts() );
-        assertTrue( ed.getExportedArtifacts().isEmpty() );
+        assertThat( ed.getExportedArtifacts(), is( empty() ) );
     }
 
     public void testCompleteDescriptor()

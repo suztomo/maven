@@ -19,13 +19,19 @@ package org.apache.maven.model.merge;
  * under the License.
  */
 
+import java.util.AbstractList;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.function.BinaryOperator;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 import org.apache.maven.model.Activation;
 import org.apache.maven.model.Build;
@@ -323,113 +329,29 @@ public class ModelMerger
     protected void mergeModel_Licenses( Model target, Model source, boolean sourceDominant,
                                         Map<Object, Object> context )
     {
-        List<License> src = source.getLicenses();
-        if ( !src.isEmpty() )
-        {
-            List<License> tgt = target.getLicenses();
-            Map<Object, License> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( License element : tgt )
-            {
-                Object key = getLicenseKey( element );
-                merged.put( key, element );
-            }
-
-            for ( License element : src )
-            {
-                Object key = getLicenseKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setLicenses( new ArrayList<>( merged.values() ) );
-        }
+        target.setLicenses( merge( target.getLicenses(), source.getLicenses(),
+                                    sourceDominant, getLicenseKey() ) );
     }
 
     protected void mergeModel_MailingLists( Model target, Model source, boolean sourceDominant,
                                             Map<Object, Object> context )
     {
-        List<MailingList> src = source.getMailingLists();
-        if ( !src.isEmpty() )
-        {
-            List<MailingList> tgt = target.getMailingLists();
-            Map<Object, MailingList> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( MailingList element : tgt )
-            {
-                Object key = getMailingListKey( element );
-                merged.put( key, element );
-            }
-
-            for ( MailingList element : src )
-            {
-                Object key = getMailingListKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setMailingLists( new ArrayList<>( merged.values() ) );
-        }
+        target.setMailingLists( merge( target.getMailingLists(), source.getMailingLists(),
+                                       sourceDominant, getMailingListKey() ) );
     }
 
     protected void mergeModel_Developers( Model target, Model source, boolean sourceDominant,
                                           Map<Object, Object> context )
     {
-        List<Developer> src = source.getDevelopers();
-        if ( !src.isEmpty() )
-        {
-            List<Developer> tgt = target.getDevelopers();
-            Map<Object, Developer> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Developer element : tgt )
-            {
-                Object key = getDeveloperKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Developer element : src )
-            {
-                Object key = getDeveloperKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setDevelopers( new ArrayList<>( merged.values() ) );
-        }
+        target.setDevelopers( merge( target.getDevelopers(), source.getDevelopers(),
+                sourceDominant, getDeveloperKey() ) );
     }
 
     protected void mergeModel_Contributors( Model target, Model source, boolean sourceDominant,
                                             Map<Object, Object> context )
     {
-        List<Contributor> src = source.getContributors();
-        if ( !src.isEmpty() )
-        {
-            List<Contributor> tgt = target.getContributors();
-            Map<Object, Contributor> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Contributor element : tgt )
-            {
-                Object key = getContributorKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Contributor element : src )
-            {
-                Object key = getContributorKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setContributors( new ArrayList<>( merged.values() ) );
-        }
+        target.setContributors( merge( target.getContributors(), source.getContributors(),
+                sourceDominant, getContributorKey() ) );
     }
 
     protected void mergeModel_IssueManagement( Model target, Model source, boolean sourceDominant,
@@ -515,29 +437,8 @@ public class ModelMerger
     protected void mergeModel_Profiles( Model target, Model source, boolean sourceDominant,
                                         Map<Object, Object> context )
     {
-        List<Profile> src = source.getProfiles();
-        if ( !src.isEmpty() )
-        {
-            List<Profile> tgt = target.getProfiles();
-            Map<Object, Profile> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Profile element : tgt )
-            {
-                Object key = getProfileKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Profile element : src )
-            {
-                Object key = getProfileKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setProfiles( new ArrayList<>( merged.values() ) );
-        }
+        target.setProfiles( merge( target.getProfiles(), source.getProfiles(),
+                sourceDominant, getProfileKey() ) );
     }
 
     protected void mergeModelBase( ModelBase target, ModelBase source, boolean sourceDominant,
@@ -556,99 +457,28 @@ public class ModelMerger
     protected void mergeModelBase_Modules( ModelBase target, ModelBase source, boolean sourceDominant,
                                            Map<Object, Object> context )
     {
-        List<String> src = source.getModules();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getModules();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setModules( merged );
-        }
+        target.setModules( merge( target.getModules(), source.getModules(), sourceDominant, e -> e ) );
     }
 
     protected void mergeModelBase_Dependencies( ModelBase target, ModelBase source, boolean sourceDominant,
                                                 Map<Object, Object> context )
     {
-        List<Dependency> src = source.getDependencies();
-        if ( !src.isEmpty() )
-        {
-            List<Dependency> tgt = target.getDependencies();
-            Map<Object, Dependency> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Dependency element : tgt )
-            {
-                Object key = getDependencyKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Dependency element : src )
-            {
-                Object key = getDependencyKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setDependencies( new ArrayList<>( merged.values() ) );
-        }
+        target.setDependencies( merge( target.getDependencies(), source.getDependencies(),
+                sourceDominant, getDependencyKey() ) );
     }
 
     protected void mergeModelBase_Repositories( ModelBase target, ModelBase source, boolean sourceDominant,
                                                 Map<Object, Object> context )
     {
-        List<Repository> src = source.getRepositories();
-        if ( !src.isEmpty() )
-        {
-            List<Repository> tgt = target.getRepositories();
-            Map<Object, Repository> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Repository element : tgt )
-            {
-                Object key = getRepositoryKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Repository element : src )
-            {
-                Object key = getRepositoryKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setRepositories( new ArrayList<>( merged.values() ) );
-        }
+        target.setRepositories( merge( target.getRepositories(), source.getRepositories(),
+                sourceDominant, getRepositoryKey() ) );
     }
 
     protected void mergeModelBase_PluginRepositories( ModelBase target, ModelBase source, boolean sourceDominant,
                                                       Map<Object, Object> context )
     {
-        List<Repository> src = source.getPluginRepositories();
-        if ( !src.isEmpty() )
-        {
-            List<Repository> tgt = target.getPluginRepositories();
-            Map<Object, Repository> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Repository element : tgt )
-            {
-                Object key = getRepositoryKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Repository element : src )
-            {
-                Object key = getRepositoryKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setPluginRepositories( new ArrayList<>( merged.values() ) );
-        }
+        target.setPluginRepositories( merge( target.getPluginRepositories(), source.getPluginRepositories(),
+                sourceDominant, getRepositoryKey() ) );
     }
 
     protected void mergeModelBase_DistributionManagement( ModelBase target, ModelBase source, boolean sourceDominant,
@@ -1236,30 +1066,8 @@ public class ModelMerger
     protected void mergeDependency_Exclusions( Dependency target, Dependency source, boolean sourceDominant,
                                                Map<Object, Object> context )
     {
-        List<Exclusion> src = source.getExclusions();
-        if ( !src.isEmpty() )
-        {
-            List<Exclusion> tgt = target.getExclusions();
-
-            Map<Object, Exclusion> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Exclusion element : tgt )
-            {
-                Object key = getExclusionKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Exclusion element : src )
-            {
-                Object key = getExclusionKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setExclusions( new ArrayList<>( merged.values() ) );
-        }
+        target.setExclusions( merge( target.getExclusions(), source.getExclusions(),
+                sourceDominant, getExclusionKey() ) );
     }
 
     protected void mergeExclusion( Exclusion target, Exclusion source, boolean sourceDominant,
@@ -1336,30 +1144,8 @@ public class ModelMerger
     protected void mergeReporting_Plugins( Reporting target, Reporting source, boolean sourceDominant,
                                            Map<Object, Object> context )
     {
-        List<ReportPlugin> src = source.getPlugins();
-        if ( !src.isEmpty() )
-        {
-            List<ReportPlugin> tgt = target.getPlugins();
-            Map<Object, ReportPlugin> merged =
-                new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( ReportPlugin element : tgt )
-            {
-                Object key = getReportPluginKey( element );
-                merged.put( key, element );
-            }
-
-            for ( ReportPlugin element : src )
-            {
-                Object key = getReportPluginKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setPlugins( new ArrayList<>( merged.values() ) );
-        }
+        target.setPlugins( merge( target.getPlugins(), source.getPlugins(),
+                sourceDominant, getReportPluginKey() ) );
     }
 
     protected void mergeReportPlugin( ReportPlugin target, ReportPlugin source, boolean sourceDominant,
@@ -1417,29 +1203,8 @@ public class ModelMerger
     protected void mergeReportPlugin_ReportSets( ReportPlugin target, ReportPlugin source, boolean sourceDominant,
                                                  Map<Object, Object> context )
     {
-        List<ReportSet> src = source.getReportSets();
-        if ( !src.isEmpty() )
-        {
-            List<ReportSet> tgt = target.getReportSets();
-            Map<Object, ReportSet> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( ReportSet element : tgt )
-            {
-                Object key = getReportSetKey( element );
-                merged.put( key, element );
-            }
-
-            for ( ReportSet element : src )
-            {
-                Object key = getReportSetKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setReportSets( new ArrayList<>( merged.values() ) );
-        }
+        target.setReportSets( merge( target.getReportSets(), source.getReportSets(),
+                sourceDominant, getReportSetKey() ) );
     }
 
     protected void mergeReportSet( ReportSet target, ReportSet source, boolean sourceDominant,
@@ -1467,33 +1232,7 @@ public class ModelMerger
     protected void mergeReportSet_Reports( ReportSet target, ReportSet source, boolean sourceDominant,
                                            Map<Object, Object> context )
     {
-        List<String> src = source.getReports();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getReports();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setReports( merged );
-
-            InputLocation sourceLocation = source.getLocation( "reports" );
-            if ( sourceLocation != null )
-            {
-                InputLocation targetLocation = target.getLocation( "reports" );
-                if ( targetLocation == null )
-                {
-                    target.setLocation( "reports", sourceLocation );
-                }
-                else
-                {
-                    for ( int i = 0; i < src.size(); i++ )
-                    {
-                        targetLocation.setLocation( Integer.valueOf( tgt.size() + i ),
-                                                    sourceLocation.getLocation( Integer.valueOf( i ) ) );
-                    }
-                }
-            }
-        }
+        target.setReports( merge( target.getReports(), source.getReports(), sourceDominant, e -> e ) );
     }
 
     protected void mergeDependencyManagement( DependencyManagement target, DependencyManagement source,
@@ -1505,29 +1244,8 @@ public class ModelMerger
     protected void mergeDependencyManagement_Dependencies( DependencyManagement target, DependencyManagement source,
                                                            boolean sourceDominant, Map<Object, Object> context )
     {
-        List<Dependency> src = source.getDependencies();
-        if ( !src.isEmpty() )
-        {
-            List<Dependency> tgt = target.getDependencies();
-            Map<Object, Dependency> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Dependency element : tgt )
-            {
-                Object key = getDependencyKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Dependency element : src )
-            {
-                Object key = getDependencyKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setDependencies( new ArrayList<>( merged.values() ) );
-        }
+        target.setDependencies( merge( target.getDependencies(), source.getDependencies(),
+                                       sourceDominant, getDependencyKey() ) );
     }
 
     protected void mergeParent( Parent target, Parent source, boolean sourceDominant, Map<Object, Object> context )
@@ -1776,15 +1494,10 @@ public class ModelMerger
     protected void mergeMailingList_OtherArchives( MailingList target, MailingList source, boolean sourceDominant,
                                                    Map<Object, Object> context )
     {
-        List<String> src = source.getOtherArchives();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getOtherArchives();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setOtherArchives( merged );
-        }
+        target.setOtherArchives( merge( target.getOtherArchives(), 
+                                        source.getOtherArchives(), 
+                                        sourceDominant,
+                                        e -> e ) );
     }
 
     protected void mergeDeveloper( Developer target, Developer source, boolean sourceDominant,
@@ -1908,15 +1621,7 @@ public class ModelMerger
     protected void mergeContributor_Roles( Contributor target, Contributor source, boolean sourceDominant,
                                            Map<Object, Object> context )
     {
-        List<String> src = source.getRoles();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getRoles();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setRoles( merged );
-        }
+        target.setRoles( merge( target.getRoles(), source.getRoles(), sourceDominant, e -> e ) );
     }
 
     protected void mergeContributor_Properties( Contributor target, Contributor source, boolean sourceDominant,
@@ -2122,29 +1827,8 @@ public class ModelMerger
     protected void mergeCiManagement_Notifiers( CiManagement target, CiManagement source, boolean sourceDominant,
                                                 Map<Object, Object> context )
     {
-        List<Notifier> src = source.getNotifiers();
-        if ( !src.isEmpty() )
-        {
-            List<Notifier> tgt = target.getNotifiers();
-            Map<Object, Notifier> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Notifier element : tgt )
-            {
-                Object key = getNotifierKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Notifier element : src )
-            {
-                Object key = getNotifierKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setNotifiers( new ArrayList<>( merged.values() ) );
-        }
+        target.setNotifiers( merge( target.getNotifiers(), source.getNotifiers(),
+                                    sourceDominant, getNotifierKey() ) );
     }
 
     protected void mergeNotifier( Notifier target, Notifier source, boolean sourceDominant,
@@ -2342,29 +2026,8 @@ public class ModelMerger
     protected void mergeBuild_Extensions( Build target, Build source, boolean sourceDominant,
                                           Map<Object, Object> context )
     {
-        List<Extension> src = source.getExtensions();
-        if ( !src.isEmpty() )
-        {
-            List<Extension> tgt = target.getExtensions();
-            Map<Object, Extension> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Extension element : tgt )
-            {
-                Object key = getExtensionKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Extension element : src )
-            {
-                Object key = getExtensionKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setExtensions( new ArrayList<>( merged.values() ) );
-        }
+        target.setExtensions( merge( target.getExtensions(), source.getExtensions(),
+                                     sourceDominant, getExtensionKey() ) );
     }
 
     protected void mergeExtension( Extension target, Extension source, boolean sourceDominant,
@@ -2474,71 +2137,21 @@ public class ModelMerger
     protected void mergeBuildBase_Filters( BuildBase target, BuildBase source, boolean sourceDominant,
                                            Map<Object, Object> context )
     {
-        List<String> src = source.getFilters();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getFilters();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setFilters( merged );
-        }
+        target.setFilters( merge( target.getFilters(), source.getFilters(), sourceDominant, e -> e ) );
     }
 
     protected void mergeBuildBase_Resources( BuildBase target, BuildBase source, boolean sourceDominant,
                                              Map<Object, Object> context )
     {
-        List<Resource> src = source.getResources();
-        if ( !src.isEmpty() )
-        {
-            List<Resource> tgt = target.getResources();
-            Map<Object, Resource> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Resource element : tgt )
-            {
-                Object key = getResourceKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Resource element : src )
-            {
-                Object key = getResourceKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setResources( new ArrayList<>( merged.values() ) );
-        }
+        target.setResources( merge( target.getResources(), source.getResources(),
+                                    sourceDominant, getResourceKey() ) );
     }
 
     protected void mergeBuildBase_TestResources( BuildBase target, BuildBase source, boolean sourceDominant,
                                                  Map<Object, Object> context )
     {
-        List<Resource> src = source.getTestResources();
-        if ( !src.isEmpty() )
-        {
-            List<Resource> tgt = target.getTestResources();
-            Map<Object, Resource> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Resource element : tgt )
-            {
-                Object key = getResourceKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Resource element : src )
-            {
-                Object key = getResourceKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setTestResources( new ArrayList<>( merged.values() ) );
-        }
+        target.setTestResources( merge( target.getTestResources(), source.getTestResources(),
+                                        sourceDominant, getResourceKey() ) );
     }
 
     protected void mergePluginConfiguration( PluginConfiguration target, PluginConfiguration source,
@@ -2564,8 +2177,8 @@ public class ModelMerger
         }
     }
 
-    protected void mergePluginContainer( PluginContainer target, PluginContainer source, boolean sourceDominant,
-                                         Map<Object, Object> context )
+    protected void mergePluginContainer( PluginContainer target, PluginContainer source,
+                                         boolean sourceDominant, Map<Object, Object> context )
     {
         mergePluginContainer_Plugins( target, source, sourceDominant, context );
     }
@@ -2573,29 +2186,8 @@ public class ModelMerger
     protected void mergePluginContainer_Plugins( PluginContainer target, PluginContainer source,
                                                  boolean sourceDominant, Map<Object, Object> context )
     {
-        List<Plugin> src = source.getPlugins();
-        if ( !src.isEmpty() )
-        {
-            List<Plugin> tgt = target.getPlugins();
-            Map<Object, Plugin> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Plugin element : tgt )
-            {
-                Object key = getPluginKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Plugin element : src )
-            {
-                Object key = getPluginKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setPlugins( new ArrayList<>( merged.values() ) );
-        }
+        target.setPlugins( merge( target.getPlugins(), source.getPlugins(),
+                                  sourceDominant, getPluginKey() ) );
     }
 
     protected void mergePluginManagement( PluginManagement target, PluginManagement source, boolean sourceDominant,
@@ -2674,59 +2266,15 @@ public class ModelMerger
     protected void mergePlugin_Dependencies( Plugin target, Plugin source, boolean sourceDominant,
                                              Map<Object, Object> context )
     {
-        List<Dependency> src = source.getDependencies();
-        if ( !src.isEmpty() )
-        {
-            List<Dependency> tgt = target.getDependencies();
-            Map<Object, Dependency> merged = new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( Dependency element : tgt )
-            {
-                Object key = getDependencyKey( element );
-                merged.put( key, element );
-            }
-
-            for ( Dependency element : src )
-            {
-                Object key = getDependencyKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setDependencies( new ArrayList<>( merged.values() ) );
-        }
+        target.setDependencies( merge( target.getDependencies(), source.getDependencies(),
+                                       sourceDominant, getDependencyKey() ) );
     }
 
     protected void mergePlugin_Executions( Plugin target, Plugin source, boolean sourceDominant,
                                            Map<Object, Object> context )
     {
-        List<PluginExecution> src = source.getExecutions();
-        if ( !src.isEmpty() )
-        {
-            List<PluginExecution> tgt = target.getExecutions();
-
-            Map<Object, PluginExecution> merged =
-                new LinkedHashMap<>( ( src.size() + tgt.size() ) * 2 );
-
-            for ( PluginExecution element : tgt )
-            {
-                Object key = getPluginExecutionKey( element );
-                merged.put( key, element );
-            }
-
-            for ( PluginExecution element : src )
-            {
-                Object key = getPluginExecutionKey( element );
-                if ( sourceDominant || !merged.containsKey( key ) )
-                {
-                    merged.put( key, element );
-                }
-            }
-
-            target.setExecutions( new ArrayList<>( merged.values() ) );
-        }
+        target.setExecutions( merge( target.getExecutions(), source.getExecutions(),
+                                     sourceDominant, getPluginExecutionKey() ) );
     }
 
     protected void mergeConfigurationContainer( ConfigurationContainer target, ConfigurationContainer source,
@@ -2810,15 +2358,7 @@ public class ModelMerger
     protected void mergePluginExecution_Goals( PluginExecution target, PluginExecution source, boolean sourceDominant,
                                                Map<Object, Object> context )
     {
-        List<String> src = source.getGoals();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getGoals();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setGoals( merged );
-        }
+        target.setGoals( merge( target.getGoals(), source.getGoals(), sourceDominant, e -> e ) );
     }
 
     protected void mergeResource( Resource target, Resource source, boolean sourceDominant,
@@ -2901,29 +2441,13 @@ public class ModelMerger
     protected void mergePatternSet_Includes( PatternSet target, PatternSet source, boolean sourceDominant,
                                              Map<Object, Object> context )
     {
-        List<String> src = source.getIncludes();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getIncludes();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setIncludes( merged );
-        }
+        target.setIncludes( merge( target.getIncludes(), source.getIncludes(), sourceDominant, e -> e ) );
     }
 
     protected void mergePatternSet_Excludes( PatternSet target, PatternSet source, boolean sourceDominant,
                                              Map<Object, Object> context )
     {
-        List<String> src = source.getExcludes();
-        if ( !src.isEmpty() )
-        {
-            List<String> tgt = target.getExcludes();
-            List<String> merged = new ArrayList<>( tgt.size() + src.size() );
-            merged.addAll( tgt );
-            merged.addAll( src );
-            target.setExcludes( merged );
-        }
+        target.setExcludes( merge( target.getExcludes(), source.getExcludes(), sourceDominant, e -> e ) );
     }
 
     protected void mergeProfile( Profile target, Profile source, boolean sourceDominant, Map<Object, Object> context )
@@ -2938,84 +2462,334 @@ public class ModelMerger
         // TODO
     }
 
+    @Deprecated
     protected Object getDependencyKey( Dependency dependency )
     {
         return dependency;
     }
 
+    @Deprecated
     protected Object getPluginKey( Plugin plugin )
     {
         return plugin;
     }
 
+    @Deprecated
     protected Object getPluginExecutionKey( PluginExecution pluginExecution )
     {
         return pluginExecution;
     }
 
+    @Deprecated
     protected Object getReportPluginKey( ReportPlugin reportPlugin )
     {
         return reportPlugin;
     }
 
+    @Deprecated
     protected Object getReportSetKey( ReportSet reportSet )
     {
         return reportSet;
     }
 
+    @Deprecated
     protected Object getLicenseKey( License license )
     {
         return license;
     }
 
+    @Deprecated
     protected Object getMailingListKey( MailingList mailingList )
     {
         return mailingList;
     }
 
+    @Deprecated
     protected Object getDeveloperKey( Developer developer )
     {
         return developer;
     }
 
+    @Deprecated
     protected Object getContributorKey( Contributor contributor )
     {
         return contributor;
     }
 
+    @Deprecated
     protected Object getProfileKey( Profile profile )
     {
         return profile;
     }
 
+    @Deprecated
     protected Object getRepositoryKey( Repository repository )
     {
         return getRepositoryBaseKey( repository );
     }
 
+    @Deprecated
     protected Object getRepositoryBaseKey( RepositoryBase repositoryBase )
     {
         return repositoryBase;
     }
 
+    @Deprecated
     protected Object getNotifierKey( Notifier notifier )
     {
         return notifier;
     }
 
+    @Deprecated
     protected Object getResourceKey( Resource resource )
     {
         return resource;
     }
 
+    @Deprecated
     protected Object getExtensionKey( Extension extension )
     {
         return extension;
     }
 
+    @Deprecated
     protected Object getExclusionKey( Exclusion exclusion )
     {
         return exclusion;
     }
+    
+    protected KeyComputer<Dependency> getDependencyKey()
+    {
+        return d -> d;
+    }
 
+    protected KeyComputer<Plugin> getPluginKey()
+    {
+        return p -> p;
+    }
+
+    protected KeyComputer<PluginExecution> getPluginExecutionKey()
+    {
+        return e -> e;
+    }
+
+    protected KeyComputer<ReportPlugin> getReportPluginKey()
+    {
+        return p -> p;
+    }
+
+    protected KeyComputer<ReportSet> getReportSetKey()
+    {
+        return s -> s;
+    }
+
+    protected KeyComputer<License> getLicenseKey()
+    {
+        return l -> l;
+    }
+
+    protected KeyComputer<MailingList> getMailingListKey()
+    {
+        return l -> l;
+    }
+
+    protected KeyComputer<Developer> getDeveloperKey()
+    {
+        return d -> d;
+    }
+
+    protected KeyComputer<Contributor> getContributorKey()
+    {
+        return c -> c;
+    }
+
+    protected KeyComputer<Profile> getProfileKey()
+    {
+        return p -> p;
+    }
+
+    protected KeyComputer<Repository> getRepositoryKey()
+    {
+        return r -> r;
+    }
+
+    protected KeyComputer<RepositoryBase> getRepositoryBaseKey()
+    {
+        return r -> r;
+    }
+
+    protected KeyComputer<Notifier> getNotifierKey()
+    {
+        return n -> n;
+    }
+
+    protected KeyComputer<Resource> getResourceKey()
+    {
+        return r -> r;
+    }
+
+    protected KeyComputer<Extension> getExtensionKey()
+    {
+        return e -> e;
+    }
+
+    protected KeyComputer<Exclusion> getExclusionKey()
+    {
+        return e -> e;
+    }
+
+    /**
+     * Use to compute keys for data structures
+     * @param <T>
+     */
+    @FunctionalInterface
+    public interface KeyComputer<T> extends Function<T, Object>
+    {
+    }
+
+    /**
+     * Merge two lists
+     */
+    private static <T> List<T> merge( List<T> tgt, List<T> src, boolean sourceDominant, KeyComputer<T> computer )
+    {
+        return merge( tgt, src, computer, ( t, s ) -> sourceDominant ? s : t );
+    }
+
+    private static <T> List<T> merge( List<T> tgt, List<T> src, KeyComputer<T> computer, BinaryOperator<T> remapping )
+    {
+        if ( src.isEmpty() )
+        {
+            return tgt;
+        }
+
+        MergingList<T> list;
+        if ( tgt instanceof MergingList )
+        {
+            list = (MergingList<T>) tgt;
+        }
+        else
+        {
+            list = new MergingList<>( computer, src.size() + tgt.size() );
+            list.mergeAll( tgt, ( t, s ) -> s );
+        }
+
+        list.mergeAll( src, remapping );
+        return list;
+    }
+
+    /**
+     * Merging list
+     * @param <V>
+     */
+    private static class MergingList<V> extends AbstractList<V>
+    {
+        private final KeyComputer<V> keyComputer;
+        private Map<Object, V> map;
+        private List<V> list;
+
+        MergingList( KeyComputer<V> keyComputer, int initialCapacity )
+        {
+            this.map = new LinkedHashMap<>( initialCapacity );
+            this.keyComputer = keyComputer;
+        }
+
+        @Override
+        public Iterator<V> iterator()
+        {
+            if ( map != null )
+            {
+                return map.values().iterator();
+            }
+            else
+            {
+                return list.iterator();
+            }
+        }
+
+        void mergeAll( Collection<V> vs, BinaryOperator<V> remapping )
+        {
+            if ( map == null )
+            {
+                map = list.stream().collect( Collectors.toMap( keyComputer, 
+                                                               Function.identity(), 
+                                                               null,
+                                                               LinkedHashMap::new ) );
+
+                list = null;
+            }
+
+            if ( vs instanceof MergingList && ( (MergingList<V>) vs ).map != null )
+            {
+                for ( Map.Entry<Object, V> e : ( (MergingList<V>) vs ).map.entrySet() )
+                {
+                    Object key = e.getKey();
+                    V v = e.getValue();
+                    map.merge( key, v, remapping );
+                }
+            }
+            else
+            {
+                for ( V v : vs )
+                {
+                    Object key = keyComputer.apply( v );
+                    
+                    map.merge( key, v, remapping );
+                }
+            }
+        }
+
+        @Override
+        public boolean contains( Object o )
+        {
+            if ( map != null )
+            {
+                return map.containsValue( o );
+            }
+            else
+            {
+                return list.contains( o );
+            }
+        }
+
+        private List<V> asList()
+        {
+            if ( list == null )
+            {
+                list = new ArrayList<>( map.values() );
+                map = null;
+            }
+            return list;
+        }
+
+        @Override
+        public void add( int index, V element )
+        {
+            asList().add( index, element );
+        }
+
+        @Override
+        public V remove( int index )
+        {
+            return asList().remove( index );
+        }
+
+        @Override
+        public V get( int index )
+        {
+            return asList().get( index );
+        }
+
+        @Override
+        public int size()
+        {
+            if ( map != null )
+            {
+                return map.size();
+            }
+            else
+            {
+                return list.size();
+            }
+        }
+    }
 }

@@ -58,6 +58,8 @@ import org.apache.maven.execution.scope.internal.MojoExecutionScopeModule;
 import org.apache.maven.extension.internal.CoreExports;
 import org.apache.maven.extension.internal.CoreExtensionEntry;
 import org.apache.maven.lifecycle.LifecycleExecutionException;
+import org.apache.maven.logwrapper.LogLevelRecorder;
+import org.apache.maven.logwrapper.MavenSlf4jWrapperFactory;
 import org.apache.maven.model.building.ModelProcessor;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.properties.internal.EnvironmentUtils;
@@ -113,6 +115,7 @@ import java.util.StringTokenizer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static org.apache.maven.cli.ResolveFile.resolveFile;
 import static org.apache.maven.shared.utils.logging.MessageUtils.buffer;
 
 // TODO push all common bits back to plexus cli and prepare for transition to Guice. We don't need 50 ways to make CLIs
@@ -433,7 +436,7 @@ public class MavenCli
     private CommandLine cliMerge( CommandLine mavenArgs, CommandLine mavenConfig )
     {
         CommandLine.Builder commandLineBuilder = new CommandLine.Builder();
-        
+
         // the args are easy, cli first then config file
         for ( String arg : mavenArgs.getArgs() )
         {
@@ -443,7 +446,7 @@ public class MavenCli
         {
             commandLineBuilder.addArg( arg );
         }
-        
+
         // now add all options, except for -D with cli first then config file
         List<Option> setPropertyOptions = new ArrayList<>();
         for ( Option opt : mavenArgs.getOptions() )
@@ -515,7 +518,7 @@ public class MavenCli
         {
             MessageUtils.setColorEnabled( false );
         }
-        
+
         // LOG STREAMS
         if ( cliRequest.commandLine.hasOption( CLIManager.LOG_FILE ) )
         {
@@ -541,6 +544,24 @@ public class MavenCli
 
         plexusLoggerManager = new Slf4jLoggerManager();
         slf4jLogger = slf4jLoggerFactory.getLogger( this.getClass().getName() );
+
+        if ( cliRequest.commandLine.hasOption( CLIManager.FAIL_ON_SEVERITY ) )
+        {
+            String logLevelThreshold = cliRequest.commandLine.getOptionValue( CLIManager.FAIL_ON_SEVERITY );
+
+            if ( slf4jLoggerFactory instanceof MavenSlf4jWrapperFactory )
+            {
+                LogLevelRecorder logLevelRecorder = new LogLevelRecorder( logLevelThreshold );
+                ( (MavenSlf4jWrapperFactory) slf4jLoggerFactory ).setLogLevelRecorder( logLevelRecorder );
+                slf4jLogger.info( "Enabled to break the build on log level {}.", logLevelThreshold );
+            }
+            else
+            {
+                slf4jLogger.warn( "Expected LoggerFactory to be of type '{}', but found '{}' instead. "
+                        + "The --fail-on-severity flag will not take effect.",
+                        MavenSlf4jWrapperFactory.class.getName(), slf4jLoggerFactory.getClass().getName() );
+            }
+        }
     }
 
     private void version( CliRequest cliRequest )
@@ -1008,7 +1029,7 @@ public class MavenCli
             {
                 slf4jLogger.error( "" );
                 slf4jLogger.error( "After correcting the problems, you can resume the build with the command" );
-                slf4jLogger.error( buffer().a( "  " ).strong( "mvn <goals> -rf "
+                slf4jLogger.error( buffer().a( "  " ).strong( "mvn <args> -rf "
                     + getResumeFrom( result.getTopologicallySortedProjects(), project ) ).toString() );
             }
 
@@ -1092,7 +1113,7 @@ public class MavenCli
 
         for ( int i = 0; i < lines.length; i++ )
         {
-            // add eventual current color inherited from previous line 
+            // add eventual current color inherited from previous line
             String line = currentColor + lines[i];
 
             // look for last ANSI escape sequence to check if nextColor
@@ -1341,6 +1362,8 @@ public class MavenCli
 
         // this is the default behavior.
         String reactorFailureBehaviour = MavenExecutionRequest.REACTOR_FAIL_FAST;
+
+        slf4jLoggerFactory = LoggerFactory.getILoggerFactory();
 
         if ( commandLine.hasOption( CLIManager.NON_RECURSIVE ) )
         {
@@ -1612,27 +1635,6 @@ public class MavenCli
         return (int) ( Float.valueOf( threadConfiguration.replace( "C", "" ) ) * procs );
     }
 
-    static File resolveFile( File file, String workingDirectory )
-    {
-        if ( file == null )
-        {
-            return null;
-        }
-        else if ( file.isAbsolute() )
-        {
-            return file;
-        }
-        else if ( file.getPath().startsWith( File.separator ) )
-        {
-            // drive-relative Windows path
-            return file.getAbsoluteFile();
-        }
-        else
-        {
-            return new File( workingDirectory, file.getPath() ).getAbsoluteFile();
-        }
-    }
-
     // ----------------------------------------------------------------------
     // System properties handling
     // ----------------------------------------------------------------------
@@ -1650,7 +1652,7 @@ public class MavenCli
         if ( commandLine.hasOption( CLIManager.SET_SYSTEM_PROPERTY ) )
         {
             String[] defStrs = commandLine.getOptionValues( CLIManager.SET_SYSTEM_PROPERTY );
-            
+
             if ( defStrs != null )
             {
                 for ( String defStr : defStrs )
