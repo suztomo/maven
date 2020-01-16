@@ -35,11 +35,11 @@ public class DefaultArtifactDescriptorReaderTest
     extends AbstractRepositoryTestCase
 {
 
-    DefaultArtifactDescriptorReader reader;
+    private DefaultArtifactDescriptorReader reader;
 
-    RepositoryEventDispatcher mockEventDispatcher;
+    private RepositoryEventDispatcher mockEventDispatcher;
 
-    ArgumentCaptor<RepositoryEvent> eventCaptor;
+    private ArgumentCaptor<RepositoryEvent> eventCaptor;
 
     @Override
     protected void setUp()
@@ -70,7 +70,7 @@ public class DefaultArtifactDescriptorReaderTest
         reader.readArtifactDescriptor( session, request );
 
         // verify
-        verify(mockEventDispatcher).dispatch( eventCaptor.capture() );
+        verify( mockEventDispatcher ).dispatch( eventCaptor.capture() );
 
         boolean missingArtifactDescriptor = false;
 
