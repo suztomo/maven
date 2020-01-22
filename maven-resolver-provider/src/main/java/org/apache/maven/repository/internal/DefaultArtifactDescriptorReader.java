@@ -19,6 +19,7 @@ package org.apache.maven.repository.internal;
  * under the License.
  */
 
+import java.net.UnknownHostException;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Objects;
@@ -67,7 +68,7 @@ import org.eclipse.aether.resolution.VersionResolutionException;
 import org.eclipse.aether.resolution.VersionResult;
 import org.eclipse.aether.spi.locator.Service;
 import org.eclipse.aether.spi.locator.ServiceLocator;
-import org.eclipse.aether.transfer.ArtifactTransferException;
+import org.eclipse.aether.transfer.ArtifactNotFoundException;
 
 /**
  * @author Benjamin Bentmann
@@ -243,10 +244,20 @@ public class DefaultArtifactDescriptorReader
             }
             catch ( ArtifactResolutionException e )
             {
-                Throwable cause = e.getCause();
-                if ( cause instanceof ArtifactTransferException )
+                boolean respectIgnoreMissing = e.getCause() instanceof ArtifactNotFoundException;
+                for ( Throwable cause = e.getCause(); cause != null && !respectIgnoreMissing; cause = cause.getCause() )
                 {
-                    missingDescriptor( session, trace, a, (ArtifactTransferException) cause );
+                    // When the artifact is unavailable and a repository has retired, then respect IGNORE_MISSING.
+                    // Maven cannot tell whether the artifact was in the retired repository or not.
+                    if ( cause instanceof UnknownHostException )
+                    {
+                        respectIgnoreMissing = true;
+                    }
+                }
+
+                if ( respectIgnoreMissing )
+                {
+                    missingDescriptor( session, trace, a, (Exception) e.getCause() );
                     if ( ( getPolicy( session, a, request ) & ArtifactDescriptorPolicy.IGNORE_MISSING ) != 0 )
                     {
                         return null;

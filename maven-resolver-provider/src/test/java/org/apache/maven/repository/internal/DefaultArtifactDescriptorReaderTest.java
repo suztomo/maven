@@ -19,16 +19,26 @@ package org.apache.maven.repository.internal;
  * under the License.
  */
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
+import java.net.UnknownHostException;
+import java.util.ArrayList;
+import org.apache.maven.wagon.TransferFailedException;
 import org.eclipse.aether.RepositoryEvent;
 import org.eclipse.aether.RepositoryEvent.EventType;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.impl.ArtifactDescriptorReader;
+import org.eclipse.aether.impl.ArtifactResolver;
 import org.eclipse.aether.impl.RepositoryEventDispatcher;
 import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.resolution.ArtifactDescriptorRequest;
+import org.eclipse.aether.resolution.ArtifactRequest;
+import org.eclipse.aether.resolution.ArtifactResolutionException;
+import org.eclipse.aether.transfer.ArtifactTransferException;
 import org.mockito.ArgumentCaptor;
 
 public class DefaultArtifactDescriptorReaderTest
@@ -44,6 +54,7 @@ public class DefaultArtifactDescriptorReaderTest
     @Override
     protected void setUp()
         throws Exception
+
     {
         super.setUp();
 
@@ -96,11 +107,24 @@ public class DefaultArtifactDescriptorReaderTest
         ArtifactDescriptorRequest request = new ArtifactDescriptorRequest();
 
         // [MNG-6732] DefaultArtifactDescriptorReader.loadPom to check IGNORE_MISSING policy upon ArtifactTransferException
-        RemoteRepository nonexistentRepository = new RemoteRepository.Builder( "repo", "default", "http://nonexistent.domain" ).build();
-
+        RemoteRepository nonexistentRepository = new RemoteRepository.Builder( "repo", "default", "https://nonexistent.apache.org/maven/repo" ).build();
         request.addRepository( nonexistentRepository );
 
-        request.setArtifact( new DefaultArtifact( "org.apache.maven.its", "dep-mng6732", "jar", "0.0.1" ) );
+        DefaultArtifact artifact = new DefaultArtifact( "org.apache.maven.its", "dep-mng6732", "jar", "0.0.1" );
+        request.setArtifact( artifact );
+
+        // Prepare exception that happens accessing non-existent repository
+        UnknownHostException unknownHostException = new UnknownHostException( "nonexistent.apache.org: Name or service not known" );
+        TransferFailedException transferFailedException = new TransferFailedException(
+            "Transfer failed for https://nonexistent.apache.org/maven/repo/org/apache/maven/its/dep-mng6732.pom",
+            unknownHostException );
+        ArtifactTransferException artifactTransferException = new ArtifactTransferException( artifact, null, transferFailedException );
+        ArtifactResolutionException artifactResolutionException = new ArtifactResolutionException(
+            new ArrayList<>(), "Could not transfer artifact org.apache.maven.its:dep-mng6732:jar:0.0.1", artifactTransferException );
+
+        ArtifactResolver mockResolver = mock(ArtifactResolver.class);
+        when( mockResolver.resolveArtifact( eq( this.session ), any( ArtifactRequest.class ) ) ).thenThrow( artifactResolutionException );
+        reader.setArtifactResolver( mockResolver );
 
         // execute
         reader.readArtifactDescriptor( session, request );
@@ -114,8 +138,8 @@ public class DefaultArtifactDescriptorReaderTest
         {
             if ( EventType.ARTIFACT_DESCRIPTOR_MISSING.equals( evt.getType() ) )
             {
-                assertEquals( "Could not transfer artifact org.apache.maven.its:dep-mng6732:pom:0.0.1 from/to repo (" + nonexistentRepository.getUrl()
-                    + "): Cannot access http://nonexistent.domain with type default using the available connector factories: BasicRepositoryConnectorFactory", evt.getException().getMessage() );
+                assertEquals( "Could not transfer artifact org.apache.maven.its:dep-mng6732:jar:0.0.1:"
+                    + " Transfer failed for https://nonexistent.apache.org/maven/repo/org/apache/maven/its/dep-mng6732.pom", evt.getException().getMessage() );
                 artifactTransferExceptionFound = true;
             }
         }
